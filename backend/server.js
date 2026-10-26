@@ -1,13 +1,10 @@
 
-const dns = require("node:dns");
-
-dns.setServers(["8.8.8.8", "8.8.4.4"]);
-
 require("dotenv").config();
 
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
 
@@ -18,18 +15,27 @@ app.use(express.json());
 // Event routes
 app.use("/api/events", require("./routes/eventroutes"));
 
-// Home route
-app.get("/", (req, res) => {
-  res.send("Event Admin API is running");
+// Serve the React frontend
+const frontendPath = path.join(__dirname, "../frontend/dist");
+app.use(express.static(frontendPath));
+
+// API home route
+app.get("/api", (req, res) => {
+  res.json({ message: "Event Admin API is running" });
+});
+
+// React frontend fallback
+app.use((req, res, next) => {
+  if (req.method !== "GET" || req.path.startsWith("/api/")) {
+    return next();
+  }
+
+  res.sendFile(path.join(frontendPath, "index.html"), (err) => {
+    if (err) next(err);
+  });
 });
 
 const PORT = process.env.PORT || 5000;
-
-// Check whether the MongoDB URI contains unwanted text
-console.log(
-  "Contains nslookup:",
-  process.env.MONGO_URI?.includes("nslookup")
-);
 
 // Connect to MongoDB
 mongoose
@@ -37,7 +43,7 @@ mongoose
   .then(() => {
     console.log("MongoDB connected successfully");
 
-    app.listen(PORT, () => {
+    app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on port ${PORT}`);
     });
   })
